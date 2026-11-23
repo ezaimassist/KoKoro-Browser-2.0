@@ -1,0 +1,39 @@
+pluginManagement {
+    // cefriumSource: 'registry' (default) resolves the SDK + plugin from
+    // maven.cefrium.com; 'local' builds against the in-tree SDK + plugin
+    // (sibling chromium/cef tree) with no publishing. Set in gradle.properties
+    // or per build: -PcefriumSource=local
+    def src = providers.gradleProperty('cefriumSource').getOrElse('registry')
+    def ver = providers.gradleProperty('cefriumVersion').orNull
+    if (ver == null) throw new GradleException("cefriumVersion must be set in gradle.properties (single source of truth for the Cefrium SDK coordinate)")
+    repositories {
+        maven {
+            url 'https://maven.cefrium.com'
+            content { includeGroup 'com.cefrium' }
+        }
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    if (src == 'local') {
+        includeBuild('../../chromium/src/cef/cefrium_sdk/gradle-plugin')
+    } else {
+        resolutionStrategy {
+            eachPlugin {
+                if (requested.id.id == 'com.cefrium') { useVersion(ver) }
+            }
+        }
+    }
+}
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven {
+            url 'https://maven.cefrium.com'
+            content { includeGroup 'com.cefrium' }
+        }
+    }
+}
+rootProject.name = "CefriumBrowser"
+include ':app'

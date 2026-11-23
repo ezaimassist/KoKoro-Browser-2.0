@@ -1,0 +1,3 @@
+PulseBrowser incorporates Cefrium and adaptations of Cefrium Browser (LGPL-3.0).
+https://codeberg.org/cefrium/cefrium-browser
+https://codeberg.org/cefrium/cef-android

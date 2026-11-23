@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Integer resources required by Chromium runtime.
+     min_screen_width_bucket: default (phone) value, AAR provides sw600dp/sw720dp.
+     google_play_services_version: required by GMS classes in Chromium. -->
+<resources>
+    <integer name="min_screen_width_bucket">1</integer>
+    <integer name="google_play_services_version">12451000</integer>
+</resources>

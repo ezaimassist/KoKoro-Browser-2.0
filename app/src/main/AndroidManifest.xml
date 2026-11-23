@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- File picker (input type=file) and camera capture -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- D2/F2 demos: microphone (WebRTC), geolocation, audio routing. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- FEATURE-053: Web Bluetooth device chooser. Web Bluetooth can derive
+         location, so BLUETOOTH_SCAN is NOT flagged neverForLocation. -->
+    <uses-permission android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- WebAuthn / passkeys via the Credential Manager: lets the engine request
+         credentials on behalf of a web origin (RP) instead of the app package. -->
+    <uses-permission android:name="android.permission.CREDENTIAL_MANAGER_SET_ORIGIN" />
+    <uses-permission android:name="android.permission.CREDENTIAL_MANAGER_QUERY_CANDIDATE_CREDENTIALS" />
+    <!-- Contact Picker (navigator.contacts.select). -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Web NFC (NDEFReader scan/write). -->
+    <uses-permission android:name="android.permission.NFC" />
+    <!-- Vibration API (navigator.vibrate). -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <application
+        android:name=".SampleApplication"
+        android:label="PulseBrowser"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:appCategory="game"
+        android:hardwareAccelerated="true"
+        android:hasFragileUserData="false">
+        <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version" />
+        <meta-data
+            android:name="android.game_mode_config"
+            android:resource="@xml/game_mode_config" />
+
+        <!-- Chromium multi-process services (renderer/utility/GPU) are
+             declared by the Cefrium SDK AAR with the correct slot count
+             (40, isolatedProcess=true). Do NOT redeclare
+             NUM_SANDBOXED_SERVICES here: a consumer-side count both fails
+             the manifest merge (value mismatch) and caps the SDK slots,
+             crashing on process-per-browser OEMs (HyperOS). -->
+
+        <activity
+            android:name=".MainActivity"
+            android:label="PulseBrowser"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:hardwareAccelerated="true"
+            android:theme="@style/Theme.BrowserUI.DayNight"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Web links: makes Cefrium a selectable/default browser. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+            </intent-filter>
+            <!-- Open viewable files (its own downloads, and other apps'
+                 "Open with"): text, HTML, PDF and images render in a tab. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="text/*" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="application/xhtml+xml" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity>
+
+        <!-- Cancel/Pause/Resume actions on a download notification. -->
+        <receiver
+            android:name=".DownloadActionReceiver"
+            android:exported="false" />
+
+        <!-- Opens a completed download (tap the notification / Downloads list). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+</manifest>

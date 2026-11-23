@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Public Downloads (the SDK's default download directory). -->
+    <external-path name="downloads" path="Download/" />
+    <!-- App-specific external dir, for consumers that target it. -->
+    <external-files-path name="ext_files" path="." />
+    <!-- Fallback: other locations on external storage a download may land in.
+         The provider is not exported; access is per-file via granted URI perms. -->
+    <external-path name="ext_root" path="." />
+</paths>

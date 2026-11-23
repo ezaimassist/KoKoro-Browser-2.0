@@ -1,0 +1,150 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.plugin.compose'
+    // Version resolved in settings.gradle from cefriumSource/cefriumVersion.
+    id 'com.cefrium'
+}
+
+// Cefrium SDK source switch (see gradle.properties / settings.gradle):
+// 'registry' = maven.cefrium.com (default), 'local' = in-tree AARs in app/libs/.
+def cefriumSource = providers.gradleProperty('cefriumSource').getOrElse('registry')
+def cefriumVersion = providers.gradleProperty('cefriumVersion').orNull
+if (cefriumVersion == null) throw new GradleException("cefriumVersion must be set in gradle.properties (single source of truth for the Cefrium SDK coordinate)")
+
+// Google Play upload (Gradle Play Publisher): activate only when a Play Developer API
+// service-account JSON is supplied (kept OUTSIDE the repo, in secrets/, never committed).
+// Normal builds are unaffected. Upload the AAB to a track via scripts/publish-play.sh, or:
+//   ./gradlew :app:publishReleaseBundle -PplayCredentials=/abs/secrets/play-sa.json -PplayTrack=internal
+// (the FIRST AAB must be uploaded manually in the Play Console before the API accepts it).
+def playCredentials = providers.gradleProperty('playCredentials').orNull
+if (playCredentials != null && file(playCredentials).exists()) {
+    apply plugin: 'com.github.triplet.play'
+    play {
+        serviceAccountCredentials.set(file(playCredentials))
+        // Track: internal | alpha (closed) | beta | production. Defaults to internal.
+        track.set(providers.gradleProperty('playTrack').getOrElse('internal'))
+        defaultToAppBundles.set(true)
+    }
+}
+
+android {
+    // Cefrium/Chromium reads its native libraries from disk, so they must be
+    // extracted at install time. AGP 9 rejects android:extractNativeLibs in the
+    // manifest; the build-script equivalent is legacy jniLibs packaging.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+    namespace 'com.cefrium.sample'
+    compileSdk 37
+
+    defaultConfig {
+        // Play listing identity. namespace stays com.cefrium.sample (the R/code
+        // package); manifest components are relative (.MainActivity) so they are
+        // unaffected. The app installs as com.cefrium.browser.
+        applicationId "it.pulsebrowser.gaming"
+        ndk { abiFilters "arm64-v8a" }
+        minSdk 29
+        targetSdk 36
+        versionCode 69
+        versionName "0.2.1"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Release signing for the Play upload key. The keystore + passwords live OUTSIDE
+    // the repo (set in ~/.gradle/gradle.properties as CEFRIUM_BROWSER_RELEASE_*), never
+    // committed. Builds on a machine without those props fall back to an unsigned
+    // release (CI / other devs) -- only the publish path needs them.
+    def relStore = providers.gradleProperty('CEFRIUM_BROWSER_RELEASE_STORE_FILE').orNull
+    signingConfigs {
+        if (relStore != null && file(relStore).exists()) {
+            release {
+                storeFile file(relStore)
+                storePassword providers.gradleProperty('CEFRIUM_BROWSER_RELEASE_STORE_PASSWORD').orNull
+                keyAlias providers.gradleProperty('CEFRIUM_BROWSER_RELEASE_KEY_ALIAS').orNull
+                keyPassword providers.gradleProperty('CEFRIUM_BROWSER_RELEASE_KEY_PASSWORD').orNull
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // R8 on, with SDK 0.12.0 consumer rules (smoke-minified.sh gates it).
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+            if (signingConfigs.findByName('release') != null) {
+                signingConfig signingConfigs.release
+            }
+            // -PcefriumR8Smoke: the release gate's lane. Same build under a
+            // separate application id and the debug key, so it never touches
+            // the app installed from Play.
+            if (providers.gradleProperty('cefriumR8Smoke').isPresent()) {
+                applicationIdSuffix ".r8test"
+                signingConfig signingConfigs.debug
+            }
+        }
+        debug {
+            applicationIdSuffix ".debug"
+        }
+    }
+
+    // Chromium reads assets via memory mapping -- they must be uncompressed.
+    androidResources {
+        noCompress 'dat', 'pak', 'bin'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+
+    buildFeatures {
+        compose true
+        buildConfig true
+    }
+}
+
+
+dependencies {
+    // Cefrium SDK + Compose Tier A API (CefriumView / CefriumNavigator / CefriumViewState).
+    if (cefriumSource == 'local') {
+        implementation files('libs/cefrium-sdk.aar')
+        implementation files('libs/cefrium-compose.aar')
+    } else {
+        implementation "com.cefrium:cefrium-sdk:${cefriumVersion}"
+        implementation "com.cefrium:cefrium-compose:${cefriumVersion}"
+    }
+    // Jetpack Compose.
+    implementation platform('androidx.compose:compose-bom:2026.08.00')
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.material:material-icons-extended'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    implementation 'androidx.activity:activity-compose:1.9.0'
+    // AppCompat for resource strings (abc_*) referenced by Chrome themes.
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+    implementation('androidx.appcompat:appcompat:1.7.0') {
+        exclude group: 'org.jetbrains.kotlin'
+    }
+    // MediaRouter -- Chromium loads this dynamically for Cast support
+    implementation('androidx.mediarouter:mediarouter:1.7.0') {
+        exclude group: 'org.jetbrains.kotlin'
+    }
+    // AndroidX core 1.16+ needed for BuildCompat.isAtLeastB()
+    implementation('androidx.core:core:1.16.0') {
+        exclude group: 'org.jetbrains.kotlin'
+    }
+    // CustomTabs -- needed by Chromium's SafeBrowsing/download code
+    implementation 'androidx.browser:browser:1.8.0'
+    // Kotlin stdlib -- needed by Chromium's AndroidX dependencies
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
+    // Testing
+    androidTestImplementation 'androidx.test:runner:1.6.1'
+    androidTestImplementation 'androidx.test:rules:1.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'junit:junit:4.13.2'
+
+}

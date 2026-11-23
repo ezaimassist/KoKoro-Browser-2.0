@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Required by Cefrium SDK themes/layouts. Include in your project. -->
+<resources>
+    <string name="__arcore_cancel">Cancel</string>
+    <string name="__arcore_continue">Continue</string>
+    <string name="__arcore_install_app">Install</string>
+    <string name="bottomsheet_drag_handle_content_description">Drag</string>
+    <string name="cast_ad_label"></string>
+    <string name="cast_expanded_controller_ad_image_description"></string>
+    <string name="cast_expanded_controller_ad_in_progress"></string>
+    <string name="cast_expanded_controller_background_image"></string>
+    <string name="cast_expanded_controller_live_head_description"></string>
+    <string name="cast_expanded_controller_live_stream_indicator"></string>
+    <string name="cast_expanded_controller_skip_ad_label"></string>
+    <string name="cast_expanded_controller_skip_ad_text"></string>
+    <string name="cast_intro_overlay_button_text"></string>
+    <string name="cast_live_label"></string>
+    <string name="cast_seek_bar"></string>
+    <string name="error_a11y_label"></string>
+    <string name="hint_find">Find</string>
+    <string name="label_password_first"></string>
+    <string name="m3_loading_indicator_content_description">Loading</string>
+    <string name="mtrl_button_snackbar_close_content_description">Close</string>
+    <string name="next_button_description">Next</string>
+    <string name="password_toggle_content_description">Toggle</string>
+    <string name="previous_button_description">Previous</string>
+    <string name="scrollbar_description"></string>
+    <string name="v7_preference_off">OFF</string>
+    <string name="v7_preference_on">ON</string>
+    <string name="close_button_description">Close</string>
+    <string name="fingerprint_dialog_icon_description"></string>
+    <string name="fingerprint_dialog_touch_sensor"></string>
+    <string name="ic_media_route_learn_more_accessibility"></string>
+    <string name="mr_chooser_looking_for_devices"></string>
+    <string name="mr_chooser_title"></string>
+    <string name="mr_chooser_wifi_learn_more"></string>
+    <string name="mr_chooser_wifi_warning_description_phone"></string>
+    <string name="mr_controller_album_art"></string>
+    <string name="mr_controller_close_description">Close</string>
+    <string name="mr_controller_play">Play</string>
+    <string name="mr_controller_stop_casting">Stop</string>
+    <string name="mr_controller_volume_slider"></string>
+    <string name="searchview_clear_text_content_description">Clear</string>
+    <string name="searchview_navigation_content_description">Search</string>
+    <string name="action_edit">Edit</string>
+    <string name="error_cannot_open_pdf">Cannot open PDF</string>
+</resources>
