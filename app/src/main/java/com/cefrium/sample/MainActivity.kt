@@ -322,6 +322,21 @@ private const val YT_AD_OBSERVER_JS = """
 })();
 """
 
+private const val LAST_HAVENS_OPT_JS = """
+(function(){
+  if(window.__lhFastCam)return; window.__lhFastCam=1;
+  var origAdd=EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener=function(type,fn,opt){
+    if(type==='touchmove'||type==='pointermove'){
+      if(typeof opt==='boolean')opt={capture:opt,passive:true};
+      else if(typeof opt==='object'&&opt!==null&&opt.passive===undefined)opt=Object.assign({},opt,{passive:true});
+      else if(opt===undefined)opt={passive:true};
+    }
+    return origAdd.call(this,type,fn,opt);
+  };
+})();
+"""
+
 // Dialog routing for the overflow menu and engine-driven prompts.
 private enum class Sheet { NONE, OVERFLOW, BOOKMARKS, HISTORY, SETTINGS, DOWNLOADS, ABOUT }
 
@@ -754,6 +769,9 @@ private fun BrowserScreen(
         } else if (tab.state.isLoading == false) {
             tab.navigator.evaluateJavaScript(YT_AD_OBSERVER_JS)
         }
+        if (url.contains("lasthavens.com") && tab.state.isLoading == false) {
+            tab.navigator.evaluateJavaScript(LAST_HAVENS_OPT_JS)
+        }
     }
 
     // Entering edit mode: focus the EditText and raise the keyboard (post so the view
@@ -887,6 +905,12 @@ private fun BrowserScreen(
                 }
 
                 window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                if (Build.VERSION.SDK_INT >= 24) {
+                    try { window.setSustainedPerformanceMode(true) } catch (_: Throwable) {}
+                }
+                try {
+                    android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_DISPLAY)
+                } catch (_: Throwable) {}
             }
         }
         onDispose {
@@ -894,6 +918,9 @@ private fun BrowserScreen(
             surfaceVote = null
             if (shouldBoost120Hz) {
                 window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                if (Build.VERSION.SDK_INT >= 24) {
+                    try { window.setSustainedPerformanceMode(false) } catch (_: Throwable) {}
+                }
                 if (Build.VERSION.SDK_INT >= 35) {
                     setFrameCategory(window.decorView, 0) // FRAME_RATE_CATEGORY_DEFAULT
                     window.decorView.requestedFrameRate = oldViewRate

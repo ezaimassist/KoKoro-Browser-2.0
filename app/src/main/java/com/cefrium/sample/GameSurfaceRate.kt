@@ -94,6 +94,9 @@ internal class GameSurfaceRate(private val root: View, private val hz: Float) :
             }
 
             val holder = sv.holder
+            try {
+                holder.setFormat(android.graphics.PixelFormat.OPAQUE)
+            } catch (_: Throwable) {}
             if (holder !in trackedHolders) {
                 trackedHolders.add(holder)
                 holder.addCallback(this)
