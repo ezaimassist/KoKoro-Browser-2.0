@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KoKoro Browser</string>
+    <string name="kokoro_tagline">Samurai Gaming &amp; Precision Web</string>
+    <string name="omnibar_placeholder">Cerca o inserisci un indirizzo</string>
+    <string name="new_tab_title">Nuova scheda</string>
+    <string name="control_center_title">Centro Controllo KoKoro</string>
+    <string name="settings_title">Impostazioni KoKoro</string>
+    <string name="assistant_title">Assistente KoKoro</string>
+    <string name="gaming_boost_title">Gaming Boost</string>
+    <string name="ad_hidden_badge">Annuncio schermato</string>
+    <string name="popup_blocked_message">Popup bloccato dallo Scudo KoKoro</string>
+    <string name="popup_allow_action">Consenti</string>
+    <string name="empty_bookmarks">Nessun preferito salvato. Tocca la stella nella barra per aggiungerne uno.</string>
+    <string name="empty_history">La cronologia di navigazione è vuota.</string>
+    <string name="empty_downloads">Nessun download in questa sessione.</string>
+</resources>

@@ -1,31 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Debug-only overlay: make a side-by-side debug build (applicationIdSuffix
-     ".debug") distinguishable from the release browser installed from Play, so
-     on-device validation never requires uninstalling it and wiping the user's
-     profile. Debug builds only; nothing here reaches release.
-
-     Both labels are replaced on purpose:
-       - the activity label is what the launcher shows;
-       - the application label is what Settings / Apps shows, which is where
-         runtime permissions get granted, and two identical entries there is a
-         real way to grant a permission to the wrong build.
-
-     ".MainActivity" resolves against the module namespace, which is
-     com.cefrium.sample (applicationId is com.cefrium.browser; they differ on
-     purpose, see app/build.gradle).
-
-     Note for future edits: no double hyphen anywhere in this comment. XML
-     forbids it inside a comment, and the manifest merger fails with a bare
-     "Error parsing ... AndroidManifest.xml" that does not name the cause. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <application
-        android:label="PulseBrowser"
+        android:label="@string/app_name"
         tools:node="merge"
         tools:replace="android:label">
         <activity
             android:name=".MainActivity"
-            android:label="PulseBrowser"
+            android:label="@string/app_name"
             tools:replace="android:label" />
     </application>
 </manifest>

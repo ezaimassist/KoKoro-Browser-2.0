@@ -1,5 +1,6 @@
 package com.cefrium.sample
 
+import android.graphics.PixelFormat
 import android.os.Build
 import android.view.Choreographer
 import android.view.Surface
@@ -8,25 +9,25 @@ import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
-import androidx.annotation.RequiresApi
 
 /**
- * High-performance frame rate controller for games.
- * Locks the display and all rendering surfaces to the target high refresh rate (e.g., 120 Hz).
- * Uses FIXED_SOURCE compatibility and CHANGE_FRAME_RATE_ALWAYS to prevent Android/RedMagic
- * dynamic LTPO governors from dropping to 24-30 Hz when the user is idle/not touching the screen.
+ * High-performance Android 12+ frame rate controller for KoKoro Gaming Boost.
+ * Locks all active rendering surfaces to the chosen target refresh rate (60/90/120 Hz)
+ * using FIXED_SOURCE + CHANGE_FRAME_RATE_ALWAYS and API 35+ frame-rate category hints
+ * to prevent dynamic LTPO governors from dropping frame pacing mid-session.
  */
-@RequiresApi(30)
-internal class GameSurfaceRate(private val root: View, private val hz: Float) :
-    SurfaceHolder.Callback, ViewTreeObserver.OnGlobalLayoutListener {
+internal class GameSurfaceRate(
+    private val root: View,
+    private val targetHz: Float,
+) : SurfaceHolder.Callback, ViewTreeObserver.OnGlobalLayoutListener {
 
     private val trackedHolders = mutableSetOf<SurfaceHolder>()
     private var isRunning = false
 
-    var requested = false
+    @Volatile
+    var requested: Boolean = false
         private set
 
-    // Active VSYNC heartbeat to ensure Choreographer stays warm at 120 Hz even when idle
     private val framePump = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             if (isRunning) {
@@ -59,18 +60,11 @@ internal class GameSurfaceRate(private val root: View, private val hz: Float) :
         val surface = target.surface
         if (!surface.isValid) return false
         return try {
-            if (Build.VERSION.SDK_INT >= 31) {
-                surface.setFrameRate(
-                    rate,
-                    Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
-                    Surface.CHANGE_FRAME_RATE_ALWAYS
-                )
-            } else {
-                surface.setFrameRate(
-                    rate,
-                    Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE
-                )
-            }
+            surface.setFrameRate(
+                rate,
+                Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
+                Surface.CHANGE_FRAME_RATE_ALWAYS,
+            )
             true
         } catch (_: Exception) {
             false
@@ -84,24 +78,23 @@ internal class GameSurfaceRate(private val root: View, private val hz: Float) :
         var anyVoted = false
         for (sv in surfaces) {
             if (Build.VERSION.SDK_INT >= 35) {
-                try {
-                    val method = View::class.java.getMethod("setFrameRateCategory", Int::class.javaPrimitiveType)
-                    method.invoke(sv, 2) // FRAME_RATE_CATEGORY_HIGH = 2
-                } catch (_: Throwable) {}
-                try {
-                    sv.requestedFrameRate = hz
-                } catch (_: Throwable) {}
+                runCatching {
+                    val method = View::class.java.getMethod(
+                        "setFrameRateCategory",
+                        Int::class.javaPrimitiveType,
+                    )
+                    method.invoke(sv, 2) // FRAME_RATE_CATEGORY_HIGH
+                }
+                runCatching { sv.requestedFrameRate = targetHz }
             }
 
             val holder = sv.holder
-            try {
-                holder.setFormat(android.graphics.PixelFormat.OPAQUE)
-            } catch (_: Throwable) {}
+            runCatching { holder.setFormat(PixelFormat.OPAQUE) }
             if (holder !in trackedHolders) {
                 trackedHolders.add(holder)
                 holder.addCallback(this)
             }
-            if (vote(holder, hz)) {
+            if (vote(holder, targetHz)) {
                 anyVoted = true
             }
         }
@@ -111,42 +104,35 @@ internal class GameSurfaceRate(private val root: View, private val hz: Float) :
     }
 
     override fun onGlobalLayout() {
-        if (!isRunning) return
-        scanAndVote()
+        if (isRunning) scanAndVote()
     }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
-        if (vote(holder, hz)) requested = true
+        if (vote(holder, targetHz)) requested = true
     }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-        if (vote(holder, hz)) requested = true
+        if (vote(holder, targetHz)) requested = true
     }
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
         holder.removeCallback(this)
         trackedHolders.remove(holder)
-        if (trackedHolders.isEmpty()) {
-            requested = false
-        }
+        if (trackedHolders.isEmpty()) requested = false
     }
 
     private fun detach() {
         for (holder in trackedHolders) {
-            try {
+            runCatching {
                 holder.removeCallback(this)
                 if (holder.surface.isValid) {
-                    if (Build.VERSION.SDK_INT >= 31) {
-                        holder.surface.setFrameRate(
-                            0f,
-                            Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
-                            Surface.CHANGE_FRAME_RATE_ALWAYS
-                        )
-                    } else {
-                        holder.surface.setFrameRate(0f, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT)
-                    }
+                    holder.surface.setFrameRate(
+                        0f,
+                        Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
+                        Surface.CHANGE_FRAME_RATE_ALWAYS,
+                    )
                 }
-            } catch (_: Exception) {}
+            }
         }
         trackedHolders.clear()
         requested = false

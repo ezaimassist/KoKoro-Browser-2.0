@@ -1,0 +1,6 @@
+{
+  "name": "KoKoro Browser",
+  "description": "Samurai-styled Android 12+ gaming and daily browser powered by Cefrium with real 120Hz Gaming Boost, Quality-of-Life addons, multi-theme Control Center, and the animated KoKoro local assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
