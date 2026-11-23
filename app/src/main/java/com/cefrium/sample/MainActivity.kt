@@ -839,9 +839,28 @@ private fun BrowserScreen(
         val display = activity.windowManager.defaultDisplay
         val oldModeId = window.attributes.preferredDisplayModeId
         val oldRate = if (Build.VERSION.SDK_INT >= 30) window.attributes.preferredRefreshRate else 0f
-        val oldMinRate = if (Build.VERSION.SDK_INT >= 30) window.attributes.preferredMinDisplayRefreshRate else 0f
-        val oldMaxRate = if (Build.VERSION.SDK_INT >= 30) window.attributes.preferredMaxDisplayRefreshRate else 0f
         val oldViewRate = if (Build.VERSION.SDK_INT >= 35) window.decorView.requestedFrameRate else 0f
+
+        fun applyRefreshRates(params: WindowManager.LayoutParams, rate: Float) {
+            if (Build.VERSION.SDK_INT >= 30) {
+                params.preferredRefreshRate = rate
+                try {
+                    params.javaClass.getField("preferredMinDisplayRefreshRate").setFloat(params, rate)
+                } catch (_: Throwable) {}
+                try {
+                    params.javaClass.getField("preferredMaxDisplayRefreshRate").setFloat(params, rate)
+                } catch (_: Throwable) {}
+            }
+        }
+
+        fun setFrameCategory(view: View, category: Int) {
+            if (Build.VERSION.SDK_INT >= 35) {
+                try {
+                    val m = View::class.java.getMethod("setFrameRateCategory", Int::class.javaPrimitiveType)
+                    m.invoke(view, category)
+                } catch (_: Throwable) {}
+            }
+        }
 
         if (shouldBoost120Hz) {
             val current = display.mode
@@ -856,20 +875,15 @@ private fun BrowserScreen(
                     surfaceVote = GameSurfaceRate(window.decorView, best.refreshRate).also { it.start() }
                     window.attributes = window.attributes.apply {
                         preferredDisplayModeId = best.modeId
-                        preferredRefreshRate = best.refreshRate
-                        // Lock both floor and ceiling to 120 Hz to stop LTPO power-down when idle / non-touch
-                        preferredMinDisplayRefreshRate = best.refreshRate
-                        preferredMaxDisplayRefreshRate = best.refreshRate
+                        applyRefreshRates(this, best.refreshRate)
                     }
                 } else {
                     window.attributes = window.attributes.apply { preferredDisplayModeId = best.modeId }
                 }
 
                 if (Build.VERSION.SDK_INT >= 35) {
-                    try {
-                        window.decorView.setFrameRateCategory(View.FRAME_RATE_CATEGORY_HIGH)
-                        window.decorView.requestedFrameRate = best.refreshRate
-                    } catch (_: Throwable) {}
+                    setFrameCategory(window.decorView, 2) // FRAME_RATE_CATEGORY_HIGH
+                    window.decorView.requestedFrameRate = best.refreshRate
                 }
 
                 window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -881,17 +895,13 @@ private fun BrowserScreen(
             if (shouldBoost120Hz) {
                 window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 if (Build.VERSION.SDK_INT >= 35) {
-                    try {
-                        window.decorView.setFrameRateCategory(View.FRAME_RATE_CATEGORY_DEFAULT)
-                        window.decorView.requestedFrameRate = oldViewRate
-                    } catch (_: Throwable) {}
+                    setFrameCategory(window.decorView, 0) // FRAME_RATE_CATEGORY_DEFAULT
+                    window.decorView.requestedFrameRate = oldViewRate
                 }
                 if (Build.VERSION.SDK_INT >= 30) {
                     window.attributes = window.attributes.apply {
                         preferredDisplayModeId = oldModeId
-                        preferredRefreshRate = oldRate
-                        preferredMinDisplayRefreshRate = oldMinRate
-                        preferredMaxDisplayRefreshRate = oldMaxRate
+                        applyRefreshRates(this, oldRate)
                     }
                 } else {
                     window.attributes = window.attributes.apply { preferredDisplayModeId = oldModeId }

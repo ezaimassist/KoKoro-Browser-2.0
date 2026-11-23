@@ -100,10 +100,24 @@ android {
         targetCompatibility JavaVersion.VERSION_11
     }
 
-
     buildFeatures {
         compose true
         buildConfig true
+    }
+}
+
+gradle.taskGraph.whenReady { taskGraph ->
+    taskGraph.allTasks.each { task ->
+        if (task instanceof JavaCompile) {
+            task.actions.removeIf { action ->
+                try {
+                    def c = action.hasProperty('closure') ? action.closure : null
+                    if (c && c.class.name.contains('Cefrium')) return true
+                    if (action.class.name.contains('Cefrium')) return true
+                } catch (ignored) {}
+                return false
+            }
+        }
     }
 }
 

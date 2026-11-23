@@ -85,7 +85,10 @@ internal class GameSurfaceRate(private val root: View, private val hz: Float) :
         for (sv in surfaces) {
             if (Build.VERSION.SDK_INT >= 35) {
                 try {
-                    sv.setFrameRateCategory(View.FRAME_RATE_CATEGORY_HIGH)
+                    val method = View::class.java.getMethod("setFrameRateCategory", Int::class.javaPrimitiveType)
+                    method.invoke(sv, 2) // FRAME_RATE_CATEGORY_HIGH = 2
+                } catch (_: Throwable) {}
+                try {
                     sv.requestedFrameRate = hz
                 } catch (_: Throwable) {}
             }

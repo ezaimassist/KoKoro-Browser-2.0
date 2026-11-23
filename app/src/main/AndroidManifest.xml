@@ -43,14 +43,12 @@
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:appCategory="game"
+        android:isGame="true"
         android:hardwareAccelerated="true"
         android:hasFragileUserData="false">
         <meta-data
             android:name="com.google.android.gms.version"
             android:value="@integer/google_play_services_version" />
-        <meta-data
-            android:name="android.game_mode_config"
-            android:resource="@xml/game_mode_config" />
 
         <!-- Chromium multi-process services (renderer/utility/GPU) are
              declared by the Cefrium SDK AAR with the correct slot count
