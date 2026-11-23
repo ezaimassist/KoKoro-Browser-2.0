@@ -324,16 +324,55 @@ private const val YT_AD_OBSERVER_JS = """
 
 private const val LAST_HAVENS_OPT_JS = """
 (function(){
-  if(window.__lhFastCam)return; window.__lhFastCam=1;
-  var origAdd=EventTarget.prototype.addEventListener;
-  EventTarget.prototype.addEventListener=function(type,fn,opt){
+  if(window.__lhFastCam) return;
+  window.__lhFastCam = 1;
+
+  // 1. Force generous memory & texture budget for Wasm & WebGL (stops texture thrashing on camera sweep)
+  window.wowTexBudgetMB = 1536;
+  window.wowCacheBlocks = 512;
+  window.wowMemoryMB = 2048;
+
+  // 2. Intercept URLSearchParams so game engine gets high-end budget parameters
+  var origGet = URLSearchParams.prototype.get;
+  URLSearchParams.prototype.get = function(name){
+    if(name === 'texbudget') return '1536';
+    if(name === 'cache') return '512';
+    if(name === 'mem') return '2048';
+    return origGet.apply(this, arguments);
+  };
+
+  // 3. Passive touch & pointer listeners so 1000Hz touch events do not stall the compositor
+  var origAdd = EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener = function(type,fn,opt){
     if(type==='touchmove'||type==='pointermove'){
-      if(typeof opt==='boolean')opt={capture:opt,passive:true};
-      else if(typeof opt==='object'&&opt!==null&&opt.passive===undefined)opt=Object.assign({},opt,{passive:true});
-      else if(opt===undefined)opt={passive:true};
+      if(typeof opt==='boolean') opt={capture:opt,passive:true};
+      else if(typeof opt==='object'&&opt!==null&&opt.passive===undefined) opt=Object.assign({},opt,{passive:true});
+      else if(opt===undefined) opt={passive:true};
     }
     return origAdd.call(this,type,fn,opt);
   };
+
+  // 4. WebGL Context: high-performance power preference & desynchronized presentation buffer
+  var origGetContext = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function(type, attrs){
+    if(type==='webgl2'||type==='webgl'){
+      attrs = attrs || {};
+      attrs.powerPreference = 'high-performance';
+      attrs.desynchronized = true;
+      attrs.preserveDrawingBuffer = false;
+    }
+    return origGetContext.call(this,type,attrs);
+  };
+
+  // 5. Cap WebGL devicePixelRatio to 1.8 to avoid 3K fillrate bottleneck on Ultra graphics
+  if(window.devicePixelRatio > 1.8){
+    try{
+      Object.defineProperty(window, 'devicePixelRatio', {
+        get: function(){ return 1.8; },
+        configurable: true
+      });
+    }catch(e){}
+  }
 })();
 """
 
@@ -606,7 +645,7 @@ private fun BrowserScreen(
     val prefs = remember { activity.getSharedPreferences("pulse_ui", 0) }
     var bottomBar by remember { mutableStateOf(prefs.getBoolean("bottomBar", false)) }
     var compact by remember { mutableStateOf(prefs.getBoolean("compact", false)) }
-    var gaming by remember { mutableStateOf(prefs.getBoolean("gaming", false)) }
+    var gaming by remember { mutableStateOf(prefs.getBoolean("gaming", true)) }
     var immersive by remember(activeTabId) { mutableStateOf(false) }
 
     // Android system back: dismiss transient UI first, then walk the active tab's
@@ -769,8 +808,16 @@ private fun BrowserScreen(
         } else if (tab.state.isLoading == false) {
             tab.navigator.evaluateJavaScript(YT_AD_OBSERVER_JS)
         }
-        if (url.contains("lasthavens.com") && tab.state.isLoading == false) {
-            tab.navigator.evaluateJavaScript(LAST_HAVENS_OPT_JS)
+        if (url.contains("lasthavens.com")) {
+            try {
+                val m = tab.state.javaClass.getDeclaredMethod("getBrowser\$cefrium_compose")
+                m.isAccessible = true
+                val browser = m.invoke(tab.state) as? CefriumBrowser
+                browser?.addDocumentStartJavaScript(LAST_HAVENS_OPT_JS, setOf("*"))
+            } catch (_: Throwable) {}
+            if (tab.state.isLoading == false) {
+                tab.navigator.evaluateJavaScript(LAST_HAVENS_OPT_JS)
+            }
         }
     }
 
@@ -882,19 +929,30 @@ private fun BrowserScreen(
 
         if (shouldBoost120Hz) {
             val current = display.mode
-            val best = display.supportedModes.filter {
-                val matchesResolution = (it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight) ||
-                    (it.physicalWidth == current.physicalHeight && it.physicalHeight == current.physicalWidth)
-                matchesResolution && it.refreshRate <= 120.5f
-            }.maxByOrNull { it.refreshRate }
+            val allModes = display.supportedModes
+            val modesSameRes = allModes.filter {
+                (it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight) ||
+                (it.physicalWidth == current.physicalHeight && it.physicalHeight == current.physicalWidth)
+            }
+            // Prefer 120Hz (118..122Hz); otherwise pick highest available >= 118Hz (144Hz/165Hz on RedMagic),
+            // and fallback to highest overall refresh rate -- never trapping on 60Hz or 90Hz!
+            val best = modesSameRes.filter { it.refreshRate in 118.0f..122.0f }.maxByOrNull { it.refreshRate }
+                ?: allModes.filter { it.refreshRate in 118.0f..122.0f }.maxByOrNull { it.refreshRate }
+                ?: modesSameRes.filter { it.refreshRate >= 118.0f }.maxByOrNull { it.refreshRate }
+                ?: allModes.filter { it.refreshRate >= 118.0f }.maxByOrNull { it.refreshRate }
+                ?: modesSameRes.maxByOrNull { it.refreshRate }
+                ?: allModes.maxByOrNull { it.refreshRate }
 
             if (best != null) {
                 if (Build.VERSION.SDK_INT >= 30) {
                     surfaceVote = GameSurfaceRate(window.decorView, best.refreshRate).also { it.start() }
-                    window.attributes = window.attributes.apply {
-                        preferredDisplayModeId = best.modeId
-                        applyRefreshRates(this, best.refreshRate)
-                    }
+                    val lp = window.attributes
+                    lp.preferredDisplayModeId = best.modeId
+                    applyRefreshRates(lp, best.refreshRate)
+                    window.attributes = lp
+                    try {
+                        activity.windowManager.updateViewLayout(window.decorView, lp)
+                    } catch (_: Throwable) {}
                 } else {
                     window.attributes = window.attributes.apply { preferredDisplayModeId = best.modeId }
                 }
